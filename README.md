@@ -145,13 +145,14 @@ the syntax to:
 
 It's shorter and better conveys the idea that this is all just data - nothing
 actually happens until you call `gen-spec`. Tell me what you think in the
-[issues](https://github.com/j-cr/speck/issues).
+[issues](https://github.com/j-cr/speck/issues/3).
 
 
 #### Is ClojureScript supported? 
 
-Not yet. Cljs supports static metadata on vars, so the port should be pretty
-straightforward; I just haven't done it yet.
+[Not yet](https://github.com/j-cr/speck/issues/2). Cljs supports static metadata
+on vars, so the port should be pretty straightforward; I just haven't done it
+yet.
 
 
 #### Are `:fn` specs supported?
@@ -163,7 +164,7 @@ something along this lines:
         (& number?     (< :x % :y)))       ; % refers to the return value
 
 Please tell me your thoughts on the proposed syntax in the
-[issues](https://github.com/j-cr/speck/issues). 
+[issues](https://github.com/j-cr/speck/issues/1).
 
 
 #### Should I abuse this library by writing absurdly huge inline specs and never using vanilla `s/fdef` again even where it's more appropriate?
