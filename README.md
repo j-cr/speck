@@ -4,148 +4,285 @@
 > 
 > 1. a tiny spot.
 
-[Speck][] is a tiny library for your tiny [specs][]. It allows you to write concise
-[function specs][] right inside your `defn`s and does not introduce any custom
-defn wrappers. See for yourself:
-
-```clojure
-(defn say-hello
-  {:speck (| (s/? string?) => string?)}
-  ([]     (say-hello "world"))
-  ([name] (str "Hello, " name "!")))
-```
-
+[Speck][] is a tiny library for your tiny [specs][]. It allows you to write
+concise [function specs][] right inside your `defn`s and plays nice with others
+because it doesn't introduce any custom defn wrappers. See for yourself:
 
 [Speck]: https://github.com/j-cr/speck
 [specs]: https://clojure.org/guides/spec
 [function specs]: https://clojure.org/guides/spec#_spec_ing_functions
 
+```clojure
+(defn say-hello
+  #|[(s/? string?) => string?]
+  ([]     (say-hello "world"))
+  ([name] (str "Hello, " name "!"))) 
+```
+
+Ok, admittedly this is a rather stupid example, so here's one from the official
+docs instead:
+
+```clojure
+;;; before:
+
+(s/fdef ranged-rand
+  :args (s/and (s/cat :start int? :end int?)
+               #(< (:start %) (:end %)))
+  :ret int?
+  :fn (s/and #(>= (:ret %) (-> % :args :start))
+             #(< (:ret %) (-> % :args :end))))
+
+(defn ranged-rand [start end]
+  (- start (long (rand (- end start)))))
+
+
+;;; after:
+
+(defn ranged-rand
+  #|[start :- int?, end :- int?  =>  int?
+     |-  (< start end)
+     |=  (and (>= % start) (< % end))]
+  [start end]
+  (- start (long (rand (- end start))))) 
+```
+
+
+
 ## Setup
 
 [![Clojars Project](https://img.shields.io/clojars/v/speck.svg)](https://clojars.org/speck)
 
-**Alpa software warning: the API is not stable yet. Proceed with caution and
-expect things to break[⁽*⁾](/#faq).**
-
 Add this to your `project.clj`:
 
-    [speck "0.0.1"]
+    [speck "1.0.0"]
 
-You'll probably want to add [expound][] and [orchestra][] too:
+After that, you'll need to register a [reader tag][] for speck; you can do it by
+creating a file named `data_readers.clj` in the root of your classpath (i.e. in
+the `src` directory) with the following content:
 
-    [expound "0.7.1"]           ; or whatever version is the latest - 
-    [orchestra "2017.11.12-1"]  ;  check their respective github pages
+    {| speck.v1.core/speck-reader}
 
-[expound]: https://github.com/bhb/expound
+Alternatively, you can register it from REPL by executing this code:
+
+    (set! *data-readers* (assoc *data-readers* '| #'speck.v1.core/speck-reader))
+
+In order to enable :ret and :fn spec checking (**highly recommended**) you'll
+need to add [orchestra][] too:
+
+    [orchestra "2018.12.06-2"] ; check its github page for the latest version info
+
+Speck will try to automatically use it instead of vanilla instrumentation when
+it's available, but to make sure it's being used you can setup it manually:
+
+    (ns your.app
+      (:require [speck.v1.core :as speck]
+                [orchestra.spec.test :as orchestra]
+                ...))
+    
+    (alter-var-root #'speck/*auto-define-opts* assoc
+      :instrument-fn orchestra/instrument)
+
+That's it, you're good to go!
+
+[reader tag]: https://clojure.org/reference/reader#tagged_literals
 [orchestra]: https://github.com/jeaye/orchestra
+
+
 
 ## Usage
 
 So how does that work?
 
-1. Put spec definitions under a `:speck` key in the metadata of your
-   functions.
-2. Put a call to `gen-specs-in-ns` at the end of your source file - that will
-   generate `s/fdef`s for all the functions in that file. You can also use
-   `(gen-spec your-fn)` if you want to spec a single function.
+Just put a `#|[...]` form inside your defn where the `attr-map` usually goes
+(after the name, but before the argument list) and you're done! Under the hood,
+this will expand to `{:speck (| [...])}`, where `|` is the macro that generates
+the fspec and attaches it to your function.
 
-Speck supports varargs, keyword args, optional args and arity overloading with
-different return specs for each arity. It also provides 2 options for the
-syntax: 
 
-```clojure
-;; the lispy one:
-(=> [args] ret, [more args] other-ret)
+The features included are:
 
-;; the "arrows in nice places" one:
-(| args => ret, more args => other-ret)
+- named and unnamed positional args specs
+- lightweight syntax for args and fn specs
+- arity overloading with separate return and fn specs for each arity
+- varargs, keyword args and optional args are supported too
+- automatic instrumentation
+- specs are automatically redefined on defn's recompilation
+
+
+### Syntax
+
+Skip to the next section if you want examples. The general syntax looks
+something like this:
+
+```clojure 
+ #|[arg-x       => ret-1  |- args-expr-1  |= fn-expr-1
+    arg-x arg-y => ret-2  |- args-expr-2  |= fn-expr-2
+    ...
+    opts*] 
 ```
 
-More examples:
+where
+
+- `arg-x` and `arg-y` can be either specs or triplets `name :- spec`; if no
+  names are given, default argument names `%1`, `%2`, etc are used
+
+- `_` is used to indicate zero-argument clause, i.e. `#|[_ => ret ...]`
+
+- `ret-1` and `ret-2` are ret specs for corresponding arities
+
+- `args-expr`s are boolean expressions used to generate :args specs for
+  corresponding arities; arguments are available by name
+
+- `fn-expr`s are similar to `args-expr`s, except they generate :fn specs and in
+  addition to arguments the symbol `%` is available which refers to the return
+  value
+  
+- `opts*` are `s/fspec` arguments; `:gen` is passed directly and all other opts
+  are `s/and`ed to the corresponding specs
+
+
+### Examples
+
+You can find some simple testable examples [**here**][1]; for a reference of
+all/most possible options check out the [test suite][2].
+
+[1]: /blob/master/test/speck/v1/examples.clj
+[2]: /blob/master/test/speck/v1/core_test.clj
 
 ```clojure
 
-(ns your.ns
-  (:require [speck.v0.core :as speck :refer [=> |]]
-            [clojure.spec.alpha :as s]))
-
-;; `=>` expects pairs of [arg-specs*] and ret-spec:
+;; basic rule is: input => output
 (defn abs
-  {:speck (=> [number?] (s/and number? pos?))}
+  #|[number? => (s/and number? pos?)]
   [x] ...)
 
-;; specs are matched with args based on their order (think s/cat):
+
+;; if there are no inputs, use `_`:
+(defn pandorandom
+  #|[_ => any?]
+  [] ...)
+
+
+;; you can add names to arguments, though it is optional:
 (defn fraction
-  {:speck (=> [int? pos?] ratio?)}
+  #|[numerator :- int?, denominator :- pos?  =>  ratio?]
   [num den] ...)
 
-;; different arities can have different ret specs:
-(defn i-can-haz-cheezburger?
-  {:speck (=> [bread? meat?]         #{:no :nope}
-              [bread? meat? cheese?] #{:yes :yup})}
-  ([a b] ...)
-  ([a b c] ...))
 
-;; use `s/*` for varargs:
-(defn sandwich
-  {:speck (=> [bread? (s/* good-stuff?)] ::sandwich)}
-  [b & more] ...)
-
-;; note that you can use `s/?` for optional args:
-(defn burger
-  {:speck (=> [(s/? cheese?) patty? bun?] ::burger)}
-  ([b c] ...)
-  ([a b c] ...))
-
-;; keyword args are the same as varargs - just use `s/keys*`:
-(defn enhance-burger
-  {:spec (=> [::burger (s/keys* :opt-un [::topping ::seasoning])]
-             ::burger)}
-  [burger & {:keys [topping seasoning]}]
+;; specs are always matched with args based on their order (think s/cat):
+(defn rotate
+  #|[direction :- ::vec-2d, angle :- ::radians  =>  ::vec-2d]
+  [{:keys [x y]} a]
   ...)
 
-;; you can use everything of the above with the alternative syntax if you prefer:
-(defn burger
-  {:speck (| (s/? cheese?) patty? bun? => ::burger)}
-  ([b c] ...)
-  ([a b c] ...))
 
-;; call this after all the functions in a namespace have been defined:
-(speck/gen-specs-in-ns)
+;; different arities can have different ret specs: 
+(defn map
+  #|[fn? => ::transducer, fn? (s/+ seqable?) => seq?]
+  ([f] ...)
+  ([f coll & colls] ...))
+
+
+;; note that you can use `s/?` for optional args:
+(defn join
+  #|[(s/? any?) (s/coll-of any?) => string?]
+  ([coll] ...)
+  ([sep coll] ...))
+  
+
+;; use `s/keys*` for keyword args:
+(defn start-server
+  #|[fn? (s/keys* :opt-un [::host ::port])  =>  ::server]
+  [handler & {:keys [host port]}]
+  ...)
+
+
+;; to check predicates against several args at once, use |- syntax:
+(defn interval
+  #|[start :- number?, end :- number?  =>  ::interval
+     |- (< start end)]
+  [a b] ...)
+
+
+;; note that unnamed args will get default names (%1, %2, ...)
+;; this is equivalent to the previous example:
+(defn interval
+  #|[number? number? => ::interval |- (< %1 %2)]
+  [start end] ...)
+
+
+;; use |= to check invariants connecting the arguments and the return value;
+;; the return value is bound to the `%` symbol:
+(defn select-keys
+  #|[m :- map?, ks :- (s/coll-of any?)  =>  map?
+     |=  (= (set ks) (set (keys %)))]
+  [m ks]
+  ...)
+
+
+;; unlike in clojure's anonymous functions, `%` is NOT the same as `%1`!
+;; this is equivalent to the previous example (but much more confusing):
+(defn select-keys
+  #|[map?, (s/coll-of any?)  =>  map?
+     |=  (= (set %2) (set (keys %)))]
+  [m ks]
+  ...)
+
+
+;; finally, you can directly specify fspec opts, such as :gen...
+;; :args, :ret and :fn opts will be added to the corresponding specs via s/and:
+(defn frobnicate
+  #|[x? => foo?    ;-> (s/and foo? qux?)
+     x? y? => baz? ;-> (s/and baz? qux?)
+     :ret qux?]
+  ...)
+
+
+;; oh, and by the way, you can entirely bypass using the reader literal; this is
+;; more wordy, but can be useful when you need to attach more meta to your fn:
+;; (:require [speck.v1.core :as speck :refer [|]])
+(defn foo
+  {:speck (| [...])
+   :some-other meta}
+  ...)
 
 ```
 
-Note that speck relies on `:arglists` metadata in order to work, so if it's
-messed up for some reason (maybe you're trying to *speck* a macro with a
-manually set arglists meta? (spoiler: don't do that)) bad things will happen.
 
-Also note that **ret specs won't work if you use
-`clojure.spec.test.alpha/instrument`**. You *have* to use [orchestra][]
-instead.
+### Automatic redefining and instrumentation
 
-[orchestra]: https://github.com/jeaye/orchestra
+When you recompile a *specked* function, speck will detect that and redefine all
+*specks* in the same namespace (including the one you've just recompiled);
+better granularity cannot be achieved unfortunately, but it works good enough in
+practice.
+
+To control this behavior (enable\disable it, turn debug printing on and off,
+etc) alter the var `speck.v1.core/*auto-define-opts*`.
+
+Upon redefining the affected functions will also be instrumented using the
+functions specified under `:instrument-fn` in `*auto-define-opts*`.
+
+You can manually (re)define the *specks* by calling `define-specs-in-current-ns`:
+
+    (speck/define-specs-in-current-ns {:instrument-fn orchestra/instrument})
+
+
+### Production mode
+
+You can change the tagged literal reader from `speck-reader` to
+`speck-reader-bypass` to eliminate all the `#|[...]` forms from your code.
+
+TODO: env knob
+
 
 ## FAQ
 
-#### Why `:speck`? Aren't non-namespaced keywords bad?
+#### Is this library stable?
 
-I know it's NOT GOOD™ to use non-namespaced keywords in var's metadata (in fact,
-I believe they are considered to be reserved for clojure's own use), but
-something like `::speck/def (=> ...)` would be just too much typing, and for
-library like this user convenience is more important; after all, in practice
-clojure would hardly ever use a key named "speck" as a part of its standard var
-metadata.
-
-However, having said that, for the next iteration I'm thinking about changing
-the syntax to:
-
-    (defn my-inc
-      {=> '([number?] better-number?)}  ; `=>` is just an alias for :speck.v0.core/=>
-      [x] ...)
-
-It's shorter and better conveys the idea that this is all just data - nothing
-actually happens until you call `gen-spec`. Tell me what you think in the
-[issues](https://github.com/j-cr/speck/issues/3).
+I consider v1 API to be pretty much finished, thus no major breaking changes
+should happen here. Note however that spec itself is in alpha, so when the
+[next version](https://github.com/clojure/spec-alpha2/) will be released this
+library *might* get a breaking v2 release too.
 
 
 #### Is ClojureScript supported? 
@@ -155,16 +292,19 @@ on vars, so the port should be pretty straightforward; I just haven't done it
 yet.
 
 
-#### Are `:fn` specs supported?
+#### My ret\fn specs don't work, is that a bug?
 
-Not yet, but it's the first on my todo list. Feedback wanted! I'm thinking about
-something along this lines:
+Default clojure's `instrument` [only checks args specs][1] (don't ask me why, I
+don't know); use [orchestra][2] instead.
 
-    (=> (& [int? int?] (all-good? :x :y))  ; keywords refer to the names of the args
-        (& number?     (< :x % :y)))       ; % refers to the return value
+[1]: https://clojure.org/guides/spec#_instrumentation
+[2]: https://github.com/jeaye/orchestra
 
-Please tell me your thoughts on the proposed syntax in the
-[issues](https://github.com/j-cr/speck/issues/1).
+
+#### Isn't this library abusing the tagged literals feature?
+
+I guess so... but for a worthy cause though! (Right?) You can always use the
+longer syntax `{:speck (| [...])}` if you so wish.
 
 
 #### Should I abuse this library by writing absurdly huge inline specs and never using vanilla `s/fdef` again even where it's more appropriate?
@@ -178,7 +318,7 @@ No.
 
 ## License
 
-Copyright © 2018 https://github.com/j-cr
+Copyright © 2018-2019 https://github.com/j-cr
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
