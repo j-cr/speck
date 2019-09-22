@@ -74,13 +74,16 @@ need to add [orchestra][] too:
 Speck will try to automatically use it instead of vanilla instrumentation when
 it's available, but to make sure it's being used you can setup it manually:
 
-    (ns your.app
-      (:require [speck.v1.core :as speck]
-                [orchestra.spec.test :as orchestra]
-                ...))
+
+```clojure 
+(ns your.app
+  (:require [speck.v1.core :as speck]
+            [orchestra.spec.test :as orchestra]
+            ...))
     
-    (alter-var-root #'speck/*auto-define-opts* assoc
-      :instrument-fn orchestra/instrument)
+(alter-var-root #'speck/*auto-define-opts* assoc
+  :instrument-fn orchestra/instrument)
+```
 
 That's it, you're good to go!
 
@@ -143,11 +146,11 @@ where
 
 ### Examples
 
-You can find some simple testable examples [**here**][1]; for a reference of
+You can find some simple testable examples [here][1]; for a reference of
 all/most possible options check out the [test suite][2].
 
-[1]: /blob/master/test/speck/v1/examples.clj
-[2]: /blob/master/test/speck/v1/core_test.clj
+[1]: /test/speck/v1/examples.clj
+[2]: /test/speck/v1/core_test.clj
 
 ```clojure
 
@@ -163,7 +166,7 @@ all/most possible options check out the [test suite][2].
   [] ...)
 
 
-;; you can add names to arguments, though it is optional:
+;; you can add names to the arguments, though it is optional:
 (defn fraction
   #|[numerator :- int?, denominator :- pos?  =>  ratio?]
   [num den] ...)
@@ -259,7 +262,7 @@ practice.
 To control this behavior (enable\disable it, turn debug printing on and off,
 etc) alter the var `speck.v1.core/*auto-define-opts*`.
 
-Upon redefining the affected functions will also be instrumented using the
+Upon redefining, the affected functions will also be instrumented using the
 functions specified under `:instrument-fn` in `*auto-define-opts*`.
 
 You can manually (re)define the *specks* by calling `define-specs-in-current-ns`:
