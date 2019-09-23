@@ -137,8 +137,8 @@ where
   corresponding arities; arguments are available by name
 
 - `fn-expr`s are similar to `args-expr`s, except they generate :fn specs and in
-  addition to arguments the symbol `%` is available which refers to the return
-  value
+  addition to the arguments the symbol `%` is available which refers to the
+  return value
   
 - `opts*` are `s/fspec` arguments; `:gen` is passed directly and all other opts
   are `s/and`ed to the corresponding specs
@@ -146,11 +146,8 @@ where
 
 ### Examples
 
-You can find some simple testable examples [here][1]; for a reference of
-all/most possible options check out the [test suite][2].
-
-[1]: /test/speck/v1/examples.clj
-[2]: /test/speck/v1/core_test.clj
+You can find some simple testable examples [here](/test/speck/v1/examples.clj); for a reference of
+all/most possible options check out the [test suite](/test/speck/v1/core_test.clj).
 
 ```clojure
 
@@ -241,6 +238,13 @@ all/most possible options check out the [test suite][2].
   ...)
 
 
+;; in fact, you can eschew the speck syntax completely and use vanilla clojure
+;; spec syntax if that's your thing:
+(defn abs
+  #|[:args (s/cat :x int?), :ret nat-int?]
+  ...)
+
+
 ;; oh, and by the way, you can entirely bypass using the reader literal; this is
 ;; more wordy, but can be useful when you need to attach more meta to your fn:
 ;; (:require [speck.v1.core :as speck :refer [|]])
@@ -248,6 +252,15 @@ all/most possible options check out the [test suite][2].
   {:speck (| [...])
    :some-other meta}
   ...)
+
+
+;; importantly, all of this can be used with any defn-like macro:
+(defn foo #|[...])
+(defn- foo #|[...])
+(defmacro foo #|[...])
+(defmulti foo #|[...])  ; but see https://clojure.atlassian.net/browse/CLJ-2450
+(defun foo #|[...])     ; from https://github.com/killme2008/defun
+(defroutes foo #|[...]) ; not sure why you'd want that... but you get the idea!
 
 ```
 
@@ -297,17 +310,40 @@ yet.
 
 #### My ret\fn specs don't work, is that a bug?
 
-Default clojure's `instrument` [only checks args specs][1] (don't ask me why, I
-don't know); use [orchestra][2] instead.
-
-[1]: https://clojure.org/guides/spec#_instrumentation
-[2]: https://github.com/jeaye/orchestra
+Default clojure's `instrument` [only checks args specs](https://clojure.org/guides/spec#_instrumentation)
+(don't ask me why, I don't know); use [orchestra](https://github.com/jeaye/orchestra) instead.
 
 
 #### Isn't this library abusing the tagged literals feature?
 
 I guess so... but for a worthy cause though! (Right?) You can always use the
 longer syntax `{:speck (| [...])}` if you so wish.
+
+
+#### [...but is there any advantage to that over a custom defn macro?][weavejester]
+[weavejester]:(https://www.reddit.com/r/Clojure/comments/d7wx0h/new_better_version_of_speck_a_concise_syntax_for/f167hm9/)
+
+My take on this is as follows: custom defn-wrapping macros don't compose, so as
+clojure ecosystem grows and new feature are developed you might face a situation
+where you have to choose between two (or more) incompatible defn
+wrappers. (Also, abstractions that compose poorly are just bad in general.)
+
+On the other hand speck is compatible with any defn-like macro that produces a
+var and accepts a metadata map. For example, you can use it with defmacro,
+defmulti or custom 3rd-party macros like e.g. [defun](https://github.com/killme2008/defun).
+
+Also, it's compatible with any libraries that extend your definitions in the
+same way speck does, although admittedly you would have to use the longer syntax
+for that:
+
+```clojure
+(defn foo
+  {:speck (| [...])
+   :shpec (something (completely different))}
+  ...)
+```
+
+In the end, clojure does provide this elegant extension point via vars+metadata, so why not use that?
 
 
 #### Should I abuse this library by writing absurdly huge inline specs and never using vanilla `s/fdef` again even where it's more appropriate?
