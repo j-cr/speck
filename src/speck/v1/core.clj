@@ -258,7 +258,9 @@
   {:enabled true
    :timeout 100
    :verbose true
-   :instrument-fn (or (resolve 'orchestra.spec.test/instrument)
+   :instrument-fn (or (try (require '[orchestra.spec.test])
+                           (resolve 'orchestra.spec.test/instrument)
+                           (catch Exception _ nil))
                       clojure.spec.test.alpha/instrument)
    })
 
