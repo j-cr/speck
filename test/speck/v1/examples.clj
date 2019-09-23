@@ -2,8 +2,7 @@
   (:require [speck.v1.core :as speck]
             [clojure.test :as test :refer [deftest testing is are]]
             [clojure.spec.alpha :as s]
-            [orchestra.spec.test :as orchestra]
-            [expound.alpha :as expound]))
+            [orchestra.spec.test :as orchestra]))
 
 
 ;; This namespace contains some examples of simple specked functions. Feel free
@@ -19,11 +18,6 @@
 ;; instrumentation instead of the default one:
 (alter-var-root #'speck/*auto-define-opts* assoc
   :instrument-fn orchestra/instrument)
-
-;; also, check out expound printer for spec errors:
-;; (set! s/*explain-out* expound/printer)
-;; to return to the default one, evaluate this:
-;; (set! s/*explain-out* s/explain-printer)
 
 
 (defmacro throws?

@@ -5,5 +5,4 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.10.1" :scope "provided"]
                  [org.clojure/core.async "0.4.474"]]
-  :profiles {:dev {:dependencies [[expound "0.7.1"]
-                                  [orchestra "2018.12.06-2"]]}})
+  :profiles {:dev {:dependencies [[orchestra "2018.12.06-2"]]}})
