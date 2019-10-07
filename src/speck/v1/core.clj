@@ -88,7 +88,6 @@
 
 (defn args-form [clauses]
   (->> clauses
-       ;; (map #(assoc % :arity (-> % :argslist count)))
        (map build-spec-form)
        (maybe-join-with-or)))
 
@@ -173,45 +172,31 @@
 (s/def ::opts (s/keys* :opt-un [::args ::ret ::fn ::gen]))
 
 
-#_(comment
-    (s/def ::simple-syntax
-      (s/cat :clauses (s/* (s/cat :args (s/or :named map? :unnamed vector?)
-                                  :ret any?))
-             :opts ::opts))
-
-
-    (s/fdef => :args ::simple-syntax)
-
-    (defmacro => [& body]
-      (impl (maybe-conform ::simple-syntax body)))
-    )
-
-
 (defn arrow? [x] (= x (symbol "=>")))
 (defn expr? [x] (not (arrow? x)))
 
 
-(s/def ::main-syntax:single-named-arg
+(s/def ::syntax:single-named-arg
   (s/cat :name (s/and symbol? (comp not arrow?))
          :-    #(= % (keyword "-"))
          :spec expr?))
 
 
-(s/def ::main-syntax:named-args
-  (s/& (s/+ ::main-syntax:single-named-arg)
+(s/def ::syntax:named-args
+  (s/& (s/+ ::syntax:single-named-arg)
        (s/conformer #(->> % (map (juxt :name :spec))))))
 
 
-(s/def ::main-syntax:unnamed-args
+(s/def ::syntax:unnamed-args
   ;; FIXME: should be s/*, but due to a bug in spec it doesn't work; use _ => ... for now
   (s/& (s/+ expr?)
        (s/conformer #(remove #{(symbol "_")} %))))
 
 
-(s/def ::main-syntax:single-clause
+(s/def ::syntax:single-clause
   (s/cat
-   :argslist (s/alt :named ::main-syntax:named-args
-                    :unnamed ::main-syntax:unnamed-args)
+   :argslist (s/alt :named ::syntax:named-args
+                    :unnamed ::syntax:unnamed-args)
    :=> arrow?
    :ret expr?
    :args-expr (s/& (s/? (s/cat :|- #{(symbol "|-")} :expr expr?)) (s/conformer #(:expr %)))
@@ -219,16 +204,16 @@
    ))
 
 
-(s/def ::main-syntax
-  (s/cat :clauses (s/* ::main-syntax:single-clause)
+(s/def ::syntax
+  (s/cat :clauses (s/* ::syntax:single-clause)
          :opts ::opts))
 
 
 
-(s/fdef | :args (s/cat :body (s/spec ::main-syntax)))
+(s/fdef | :args (s/cat :body (s/spec ::syntax)))
 
 (defmacro | [body]
-  (impl (maybe-conform ::main-syntax body)))
+  (impl (maybe-conform ::syntax body)))
 
 
 

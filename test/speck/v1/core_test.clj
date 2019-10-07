@@ -20,10 +20,8 @@
 ;; tests --------------------------------------------------------------------------
 
 (deftest syntax-spec-tests
-  ;; see main-syntax:unnamed-args for details:
-  ;; (s/conform ::speck/main-syntax '[=> ret])
   (are [in out]
-    (= (s/conform ::speck/main-syntax in) out)
+    (= (s/conform ::speck/syntax in) out)
 
 
     '[_ => ret]
