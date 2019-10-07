@@ -323,8 +323,7 @@ I guess so... but for a worthy cause though! (Right?) You can always use the
 longer syntax `{:speck (| [...])}` if you so wish.
 
 
-#### [...but is there any advantage to that over a custom defn macro?][weavejester]
-[weavejester]:(https://www.reddit.com/r/Clojure/comments/d7wx0h/new_better_version_of_speck_a_concise_syntax_for/f167hm9/)
+#### [...but is there any advantage to that over a custom defn macro?](https://www.reddit.com/r/Clojure/comments/d7wx0h/new_better_version_of_speck_a_concise_syntax_for/f167hm9/)
 
 My take on this is as follows: custom defn-wrapping macros don't compose, so as
 clojure ecosystem grows and new feature are developed you might face a situation
