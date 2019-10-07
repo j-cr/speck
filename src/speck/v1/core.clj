@@ -210,16 +210,57 @@
 
 
 (def ^:dynamic *prod-mode*
-  "TODO"
+  "If non-nil, the body of the `|` macro always expands to nil. Defaults to the
+  value of CLJ_SPECK_PROD_MODE env variable."
   (System/getenv "CLJ_SPECK_PROD_MODE"))
 
 
 (s/fdef | :args (s/cat :body (s/spec ::syntax)))
 
-(defmacro | [body]
+(defmacro |
+  "Return an fspec object given its specification, and optionally (re-)register
+  it (via s/def) and instrument the corresponding function. The resulting fspec
+  object must be placed under the `:speck` key in the var metadata of the
+  function it specs.
+
+  The syntax is: `(| [clauses* opts*])`.
+
+  Each clause defines a spec for a specific arity and has the form:
+  `args+ => ret  |- args-expr  |= fn-expr`
+  where:
+
+  - `args` are either specs or triples `name :- spec`, where each spec
+  positionally corresponds to an argument; for zero-arity clauses use `_` in
+  place of args. If no names are given, default names %1, %2, etc are used.
+
+  - `ret` is the return spec for this arity.
+
+  - (optional) `args-expr` is a boolean expression used as an additional check
+  in the resulting :args spec. All of the arguments are lexically bound by their
+  names in the context of this expression.
+
+  - (optional) `fn-expr` is a boolean expression used as an additional check in
+  the resulting :fn spec. In addition to the arguments, the return value is
+  bound to the name `%` in the context of this expression.
+
+  `opts` are key+val pairs as in fspec\fdef; available opts are `:gen`, `:args`,
+  `:ret` and `:fn`. The generator is passed directly to the underlying fspec
+  call, while all other options are joined via `s/and` as the last conforming
+  step to the corresponding specs.
+
+  Note that the conformed values differ in single-arity and multi-arity specs.
+  In case of multi-arity specs, the args map (as appearing in :args and :fn
+  specs) is wrapped into a map-entry of the form `[:arity-N {...}]`, where N is
+  the number of arguments in this arity.
+
+  To negate the effects of this macro in production: see `*prod-mode*`.
+
+  For details on registering and instrumenting: see `*auto-define-opts*`. Note
+  that currently ALL of the specks in the current namespace are redefined on
+  each `|` call."
+  [body]
   (when-not *prod-mode*
     (impl (maybe-conform ::syntax body))))
-
 
 
 ;; redefining ---------------------------------------------------------------------
@@ -244,7 +285,21 @@
 
 
 (def ^:dynamic *auto-define-opts*
-  "TODO"
+  "Controls the behavior of the `|` macro in regards to spec registering and
+  instrumenting on recompilation. Available opts are:
+
+  :enabled - when set to false, `(| ...)` calls will only return the fspec object
+  and will not try to register the resulting spec. Defaults to true.
+
+  :timeout - time in ms to wait after a `(| ...)` call recompilation before
+  redefining the spec. Defaults to 100.
+
+  :verbose - whether to print a message to stdout each time the specs are being
+  redefined. Defaults to true.
+
+  :instrument-fn - an instrumenting function to be invoked after redefining a
+  spec. Defaults to `orchestra.spec.test/instrument` or, if that is not found on
+  classpath, to `clojure.spec.test.alpha/instrument`."
   {:enabled true
    :timeout 100
    :verbose true
@@ -255,7 +310,9 @@
    })
 
 
-(defn maybe-define-specs []
+(defn maybe-define-specs
+  "This function is an implementation detail and should not be used directly."
+  []
   (let [{:keys [enabled timeout verbose] :as opts} *auto-define-opts*]
     (when enabled
       (a/go (a/<!! (a/timeout timeout))
@@ -267,13 +324,21 @@
 ;; reader literal -----------------------------------------------------------------
 
 
-(defn speck-reader [form]
+(defn speck-reader
+  "Expands `#|[...]` to `{:speck (| [...])}`. Expected to be used in place of the
+  attr-map inside a defn call. To register it, add:
+  `{| speck.v1.core/speck-reader}`
+  to the `data_readers.clj` file."
+  [form]
   (cond
     (vector? form) {:speck `(| ~form)}
     :else          {:speck form}))
 
 
-(defn speck-reader-bypass [form]
+(defn speck-reader-bypass
+  "When used instead of `speck-reader`, ignores its argument. Consider using
+  `*prod-mode*` instead."
+  [form]
   {})
 
 
