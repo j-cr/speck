@@ -295,14 +295,14 @@
   redefining the spec. Defaults to 100.
 
   :verbose - whether to print a message to stdout each time the specs are being
-  redefined. Defaults to true.
+  redefined. Defaults to false.
 
   :instrument-fn - an instrumenting function to be invoked after redefining a
   spec. Defaults to `orchestra.spec.test/instrument` or, if that is not found on
   classpath, to `clojure.spec.test.alpha/instrument`."
   {:enabled true
    :timeout 100
-   :verbose true
+   :verbose false
    :instrument-fn (or (try (require '[orchestra.spec.test])
                            (resolve 'orchestra.spec.test/instrument)
                            (catch Exception _ nil))
