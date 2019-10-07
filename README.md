@@ -285,10 +285,13 @@ You can manually (re)define the *specks* by calling `define-specs-in-current-ns`
 
 ### Production mode
 
-You can change the tagged literal reader from `speck-reader` to
-`speck-reader-bypass` to eliminate all the `#|[...]` forms from your code.
+Set `speck.v1.core/*prod-mode*` to a non-nil value in production. This will
+effectively remove all the `#|[...]` and `(| ...)` calls from your code. On
+load, `*prod-mode*` is set to the value of the environment variable
+`CLJ_SPECK_PROD_MODE`.
 
-TODO: env knob
+Also, you can change the tagged literal reader from `speck-reader` to
+`speck-reader-bypass` to eliminate all the `#|[...]` forms from your code.
 
 
 ## FAQ

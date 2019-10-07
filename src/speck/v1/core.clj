@@ -209,11 +209,16 @@
          :opts ::opts))
 
 
+(def ^:dynamic *prod-mode*
+  "TODO"
+  (System/getenv "CLJ_SPECK_PROD_MODE"))
+
 
 (s/fdef | :args (s/cat :body (s/spec ::syntax)))
 
 (defmacro | [body]
-  (impl (maybe-conform ::syntax body)))
+  (when-not *prod-mode*
+    (impl (maybe-conform ::syntax body))))
 
 
 
