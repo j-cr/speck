@@ -20,73 +20,73 @@
 ;; main macro implementation ------------------------------------------------------
 
 
-(defn join-specs [s1 s2]
+(defn- join-specs [s1 s2]
   (cond
     (and s1 s2) `(s/and ~s1 ~s2)
     s1 s1
     s2 s2))
 
 
-(defn arity-name [clause]
+(defn- arity-name [clause]
   (keyword (str "arity-" (-> clause :argslist count))))
 
 
-(defn arg-names [clause]
+(defn- arg-names [clause]
   (->> clause :argslist (map first)))
 
 
 ;;; args-form:
 
 
-(defn with-default-arg-names [specs]
+(defn- with-default-arg-names [specs]
   ;; %1, %2, etc
   (let [names (map (fn [n] (symbol (str "%" (inc n)))) (range))]
     (map vector names specs)))
 
 
-(defn ensure-names [[tag specs]]
+(defn- ensure-names [[tag specs]]
   ;; [:unnamed [spec ...]] | [:named ([name spec] ...)] => ([name spec] ...)
   (if (= tag :unnamed)
     (with-default-arg-names specs)
     specs))
 
 
-(defn build-args-expr-spec [clause]
+(defn- build-args-expr-spec [clause]
   (when-some [expr (:args-expr clause)]
     `(fn [{:keys [~@(arg-names clause)]}]
        ~expr)))
 
 
-(defn maybe-add-args-expr [form clause]
+(defn- maybe-add-args-expr [form clause]
   ;; (s/cat ...) => (s/and (s/cat ...) args-expr)
   (join-specs form (build-args-expr-spec clause)))
 
 
-(defn argslist-spec [{:keys [argslist]}]
+(defn- argslist-spec [{:keys [argslist]}]
   ;; ([name spec] ...) => (s/cat :name spec ...)
   `(s/cat ~@(mapcat (fn [[k v]] [(keyword k) v]) argslist)))
 
 
-(defn build-spec-form [clause]
+(defn- build-spec-form [clause]
   (-> clause
       (assoc  :form (argslist-spec clause))
       (update :form maybe-add-args-expr clause)))
 
 
-(defn join-with-or [clauses]
+(defn- join-with-or [clauses]
   (->> clauses
        (mapcat #(vector (arity-name %) (:form %)))
        (concat `(s/or ,,,))))
 
 
-(defn maybe-join-with-or [clauses]
+(defn- maybe-join-with-or [clauses]
   (case (count clauses)
     0 nil
     1 (-> clauses first :form)
     (join-with-or clauses)))
 
 
-(defn args-form [clauses]
+(defn- args-form [clauses]
   (->> clauses
        (map build-spec-form)
        (maybe-join-with-or)))
@@ -94,7 +94,7 @@
 
 ;;; ret-form:
 
-(defn ret-form [clauses]
+(defn- ret-form [clauses]
   ;; in multi-arity specs ret checking is happening in :fn
   ;; so just use any? for :ret
   (case (count clauses)
@@ -114,13 +114,13 @@
 ;;    :arity-2 (s/valid? ret-spec-2 (-> % :ret)))
 
 
-(defn build-fn-spec-single [clause]
+(defn- build-fn-spec-single [clause]
   (when-some [body (:fn-expr clause)]
     `(fn [{~'% :ret, {:keys [~@(arg-names clause)]} :args}]
        ~body)))
 
 
-(defn build-fn-expr-multi [clause]
+(defn- build-fn-expr-multi [clause]
   ;; % is: {:args [:arity-1 {:%1 42}] :ret 42}
   (when-some [body (:fn-expr clause)]
     ;; XXX: rebinding % from the whole input map to ret value; may be confusing!
@@ -129,7 +129,7 @@
        ~body)))
 
 
-(defn arity+ret-and-fn-expr [clause]
+(defn- arity+ret-and-fn-expr [clause]
   [(arity-name clause)
    (let [ret-expr `(s/valid? ~(:ret clause) (-> ~'% :ret))]
      (if-let [fn-expr (build-fn-expr-multi clause)]
@@ -137,7 +137,7 @@
        ret-expr))])
 
 
-(defn fn-form [clauses]
+(defn- fn-form [clauses]
   (case (count clauses)
     0 nil
     1 (build-fn-spec-single (first clauses))
@@ -148,7 +148,7 @@
 
 ;;; impl:
 
-(defn impl-fspec [clauses opts]
+(defn- impl-fspec [clauses opts]
   (let [clauses (map #(update % :argslist ensure-names) clauses)]
     `(s/fspec :args ~(-> (args-form clauses) (join-specs (:args opts)))
               :ret  ~(-> (ret-form  clauses) (join-specs (:ret opts)))
@@ -156,7 +156,7 @@
               :gen  ~(:gen opts))))
 
 
-(defn impl [{:keys [clauses opts]}]
+(defn- impl [{:keys [clauses opts]}]
   ;; TODO: rename
   `(do (maybe-define-specs) ~(impl-fspec clauses opts)))
 
@@ -172,8 +172,8 @@
 (s/def ::opts (s/keys* :opt-un [::args ::ret ::fn ::gen]))
 
 
-(defn arrow? [x] (= x (symbol "=>")))
-(defn expr? [x] (not (arrow? x)))
+(defn- arrow? [x] (= x (symbol "=>")))
+(defn- expr? [x] (not (arrow? x)))
 
 
 (s/def ::syntax:single-named-arg
@@ -220,19 +220,19 @@
 ;; redefining ---------------------------------------------------------------------
 
 
-(defn define-spec [var instrument-fn]
+(defn- define-spec [var instrument-fn]
   (let [spec (-> var meta :speck)
         name (@#'s/->sym var)]
     (@#'s/def-impl name nil spec)
     (when instrument-fn (instrument-fn name))))
 
 
-(defn get-specked-vars [ns]
+(defn- get-specked-vars [ns]
   (->> (vals (ns-interns ns))
        (filter #(some #{:speck} (-> % meta keys)))))
 
 
-(defn define-specs-in-current-ns [opts]
+(defn- define-specs-in-current-ns [opts]
   (doseq [var (get-specked-vars *ns*)]
     (define-spec var (:instrument-fn opts))))
 
