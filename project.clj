@@ -1,4 +1,4 @@
-(defproject speck "1.0.0"
+(defproject speck "1.1.0"
   :description "Concise syntax for your function specs"
   :url "https://github.com/j-cr/speck"
   :license {:name "Eclipse Public License"

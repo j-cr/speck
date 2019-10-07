@@ -54,7 +54,7 @@ docs instead:
 
 Add this to your `project.clj`:
 
-    [speck "1.0.0"]
+    [speck "1.1.0"]
 
 After that, you'll need to register a [reader tag][] for speck; you can do it by
 creating a file named `data_readers.clj` in the root of your classpath (i.e. in
@@ -363,4 +363,3 @@ Copyright © 2018-2019 https://github.com/j-cr
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
-
